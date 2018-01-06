@@ -1,5 +1,7 @@
+#include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -7,6 +9,7 @@
 
 /* Conversion from value to base64 character */
 const char BASE64[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
+
 
 /* Binary 111111 (lowest 6 bits set only) */ 
 const uint32_t MASK = 0x3F;
@@ -90,4 +93,30 @@ void fixed_xor(const std::vector<uint8_t> & bytes1, const std::vector<uint8_t> &
 	}
 }
 
-void determine_frequencies(const std::vector<uint8_t> & bytes, std::map<char,int> & map);
+void determine_frequencies(const std::vector<uint8_t> & bytes, std::map<char, float> & map)
+{
+	for (auto pair = ascii_freq.begin(); pair != ascii_freq.end(); ++pair) {
+		float total = 0;
+		for (auto it = bytes.begin(); it != bytes.end(); ++it) {
+			if (pair->first == (char)*it) {
+				total++;
+			}
+		}
+
+		map.emplace(std::pair<char, float>(pair->first, total));
+	}
+}
+
+float determine_chi_squared_result(const std::map<char, float> & freq)
+{
+	float chi_squared_result = 0;
+
+	for (auto pair = freq.begin(); pair != freq.end(); ++pair) {
+		char cur = pair->first;
+		float expected = ascii_freq.at(cur) * freq.size();
+		float actual = pair->second;
+		chi_squared_result += (pow(actual-expected, 2.0) / expected);
+	}
+
+	return chi_squared_result;
+}

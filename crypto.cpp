@@ -1,6 +1,10 @@
+#include <algorithm>
+#include <cctype>
+#include <cfloat>
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <vector>
 
 #include "crypto_utils.h"
@@ -61,16 +65,49 @@ bool exercise2()
 
 bool exercise3()
 {
+	std::cout << "******************** CHALLENGE 3 ********************" << std::endl;
+
 	const std::string input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
 	std::vector<uint8_t> bytes;
 	if (hex_to_bytes(input, bytes)) {
 		return false;
 	}
 
-	std::map<char, int> freq;
-	determine_frequencies(bytes, freq);
+	std::vector<char> characters;
+	for (auto it = ascii_freq.begin(); it != ascii_freq.end(); ++it) {
+		characters.push_back((char)it->first);
+		characters.push_back(toupper(it->first));
+	}
 
-	return false;
+	std::pair<char, float> min_result = std::pair<char,float>(' ', FLT_MAX);
+	for (auto it = characters.begin(); it != characters.end(); it++) {
+		std::vector<uint8_t> key(bytes.size(), *it);
+		std::vector<uint8_t> xor_result;
+		fixed_xor(bytes, key, xor_result);
+		std::transform(xor_result.begin(), xor_result.end(), xor_result.begin(), ::tolower);
+
+		std::map<char, float> freq;
+		determine_frequencies(xor_result, freq);
+
+		float chi_squared_result = determine_chi_squared_result(freq);
+
+		if (chi_squared_result <= min_result.second) {
+			min_result = std::pair<char, float>(*it, chi_squared_result);
+		}
+	}
+
+	std::cout << "KEY: " << min_result.first << std::endl;
+	std::cout << "Result: " << min_result.second << std::endl;
+
+	std::vector<uint8_t> xor_result;
+	std::vector<uint8_t> key(bytes.size(), min_result.first);
+	fixed_xor(bytes, key, xor_result);
+	std::string result_string = std::string(xor_result.begin(), xor_result.end());
+	std::cout << "XOR Result: " << result_string << std::endl;
+
+	std::string expected_string = "Cooking MC's like a pound of bacon";
+
+	return (result_string == expected_string); 
 }
 
 int main(int argc, char * argv[])
@@ -94,7 +131,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '3';
+			case '3':
 				if (exercise3()) {
 					std::cout << "Exercise 3 Worked! :)" << std::endl;
 				} else {
