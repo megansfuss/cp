@@ -74,3 +74,20 @@ void base64_encode(const std::vector<uint8_t> & bytes, std::vector<char> & outpu
 	}
 }
 
+void fixed_xor(const std::vector<uint8_t> & bytes1, const std::vector<uint8_t> & bytes2,
+	std::vector<uint8_t> & output)
+{
+	output.clear();
+	if (bytes1.size() != bytes2.size()) {
+		std::cout << "Fixed XOR inputs must be of the same size." << std::endl;
+		return;
+	}
+
+	auto it1 = bytes1.begin();
+	auto it2 = bytes2.begin();
+	for ( ; it1 != bytes1.end(); ++it1, ++it2) {
+		output.push_back(*it1 ^ *it2);
+	}
+}
+
+void determine_frequencies(const std::vector<uint8_t> & bytes, std::map<char,int> & map);
