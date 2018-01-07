@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -107,16 +109,56 @@ void determine_frequencies(const std::vector<uint8_t> & bytes, std::map<char, fl
 	}
 }
 
-float determine_chi_squared_result(const std::map<char, float> & freq)
+float determine_chi_squared_result(const std::map<char, float> & freq, size_t len)
 {
 	float chi_squared_result = 0;
-
+	float total_actual_characters = 0;
 	for (auto pair = freq.begin(); pair != freq.end(); ++pair) {
 		char cur = pair->first;
-		float expected = ascii_freq.at(cur) * freq.size();
+		float expected = ascii_freq.at(cur) * len;
 		float actual = pair->second;
+		total_actual_characters += actual;
 		chi_squared_result += (pow(actual-expected, 2.0) / expected);
 	}
 
+	// Determine percentage of characters that are unexpected
+	float unexpected_decimal = 1.0;
+	for (auto pair = ascii_freq.begin(); pair != ascii_freq.end(); ++pair) {
+		unexpected_decimal -= pair->second;
+	}
+	float unexpected_expected_characters = unexpected_decimal * len;
+	float unexpected_actual_characters = len - total_actual_characters;
+
+	chi_squared_result += pow(unexpected_actual_characters-unexpected_expected_characters, 2.0) / unexpected_expected_characters;
 	return chi_squared_result;
+}
+
+std::pair<char, float> determine_most_likely_single_xor_key(const std::vector<uint8_t> bytes)
+{
+	std::pair<char, float> min_result = std::pair<char,float>(' ', FLT_MAX);
+	for (int i = 32; i < 128; i++ ) {
+		std::vector<uint8_t> key(bytes.size(), i);
+		std::vector<uint8_t> xor_result;
+		fixed_xor(bytes, key, xor_result);
+		std::transform(xor_result.begin(), xor_result.end(), xor_result.begin(), ::tolower);
+
+		std::map<char, float> freq;
+		determine_frequencies(xor_result, freq);
+
+		float chi_squared_result = determine_chi_squared_result(freq, xor_result.size());
+
+		if (chi_squared_result <= min_result.second) {
+			min_result = std::pair<char, float>((char)i, chi_squared_result);
+		}
+	}
+
+	return min_result;
+}
+
+void repeating_xor(const std::vector<uint8_t> & buffer, const std::vector<uint8_t> & key, std::vector<uint8_t> & result)
+{
+	for (size_t i = 0; i < buffer.size(); i++) {
+		int key_index = i % key.size();
+		result.push_back(buffer[i] ^ key[key_index]);
+	}
 }

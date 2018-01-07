@@ -30,7 +30,7 @@ static const std::map<char, float> ascii_freq = {
 	{'x', .00141},
 	{'j', .00095},
 	{'q', .00084},
-	{'z', .00051}
+	{'z', .00051},
 };
 
 
@@ -40,4 +40,6 @@ void base64_encode(const std::vector<uint8_t> & bytes, std::vector<char> & outpu
 void fixed_xor(const std::vector<uint8_t> & bytes1, const std::vector<uint8_t> & bytes2,
 	std::vector<uint8_t> & output);
 void determine_frequencies(const std::vector<uint8_t> & bytes, std::map<char,float> & map);
-float determine_chi_squared_result(const std::map<char, float> & freq);
+float determine_chi_squared_result(const std::map<char, float> & freq, size_t len);
+std::pair<char, float> determine_most_likely_single_xor_key(const std::vector<uint8_t> bytes);
+void repeating_xor(const std::vector<uint8_t> & buffer, const std::vector<uint8_t> & key, std::vector<uint8_t> & result);

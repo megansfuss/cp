@@ -1,8 +1,8 @@
-#include <algorithm>
 #include <cctype>
 #include <cfloat>
 #include <cstdlib>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <vector>
@@ -73,28 +73,7 @@ bool exercise3()
 		return false;
 	}
 
-	std::vector<char> characters;
-	for (auto it = ascii_freq.begin(); it != ascii_freq.end(); ++it) {
-		characters.push_back((char)it->first);
-		characters.push_back(toupper(it->first));
-	}
-
-	std::pair<char, float> min_result = std::pair<char,float>(' ', FLT_MAX);
-	for (auto it = characters.begin(); it != characters.end(); it++) {
-		std::vector<uint8_t> key(bytes.size(), *it);
-		std::vector<uint8_t> xor_result;
-		fixed_xor(bytes, key, xor_result);
-		std::transform(xor_result.begin(), xor_result.end(), xor_result.begin(), ::tolower);
-
-		std::map<char, float> freq;
-		determine_frequencies(xor_result, freq);
-
-		float chi_squared_result = determine_chi_squared_result(freq);
-
-		if (chi_squared_result <= min_result.second) {
-			min_result = std::pair<char, float>(*it, chi_squared_result);
-		}
-	}
+	std::pair<char, float> min_result = determine_most_likely_single_xor_key(bytes);
 
 	std::cout << "KEY: " << min_result.first << std::endl;
 	std::cout << "Result: " << min_result.second << std::endl;
@@ -108,6 +87,73 @@ bool exercise3()
 	std::string expected_string = "Cooking MC's like a pound of bacon";
 
 	return (result_string == expected_string); 
+}
+
+bool exercise4()
+{
+	std::cout << "******************** CHALLENGE 4 ********************" << std::endl;
+
+	std::string most_likely_line;
+	char most_likely_key;
+	float most_likely_chi_result = FLT_MAX;
+
+	std::ifstream f("4.txt");
+	std::string line;
+	while (std::getline(f, line)) {
+		std::vector<uint8_t> bytes;
+		if (hex_to_bytes(line, bytes)) {
+			return false;
+		}
+
+		std::pair<char, float> min_result = determine_most_likely_single_xor_key(bytes);
+		if (most_likely_chi_result >= min_result.second) {
+			most_likely_chi_result = min_result.second;
+			most_likely_key = min_result.first;
+			most_likely_line = line;
+		}
+	}
+
+	// Output what the most likely line is
+	std::vector<uint8_t> bytes;
+	if (hex_to_bytes(most_likely_line, bytes)) {
+			return false;
+	}
+
+	std::vector<uint8_t> xor_result;
+	std::vector<uint8_t> key(bytes.size(), (char)most_likely_key);
+	fixed_xor(bytes, key, xor_result);
+	std::string result_string = std::string(xor_result.begin(), xor_result.end());
+	std::cout << "KEY: " << most_likely_key << std::endl;
+	std::cout << "Result: " << most_likely_chi_result << std::endl;
+	std::cout << "XOR Result: " << result_string << std::endl;
+
+	std::string expected_string = "Now that the party is jumping\n";
+	return (result_string == expected_string);
+}
+
+bool exercise5()
+{
+	std::cout << "******************** CHALLENGE 1.5 ********************" << std::endl;
+
+	const std::string stanza = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
+	const std::string key = "ICE";
+	const std::string expected_string = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
+
+	std::vector<uint8_t> stanza_bytes;
+	std::copy(stanza.c_str(), stanza.c_str() + stanza.size(), back_inserter(stanza_bytes));
+
+	std::vector<uint8_t> key_bytes;
+	std::copy(key.c_str(), key.c_str() + key.size(), back_inserter(key_bytes));
+
+	std::vector<uint8_t> result;
+	repeating_xor(stanza_bytes, key_bytes, result);
+
+	std::vector<uint8_t> expected_bytes;
+	if (hex_to_bytes(expected_string, expected_bytes)) {
+		return false;
+	}
+
+	return (result == expected_bytes);
 }
 
 int main(int argc, char * argv[])
@@ -136,6 +182,22 @@ int main(int argc, char * argv[])
 					std::cout << "Exercise 3 Worked! :)" << std::endl;
 				} else {
 					std::cout << "Exercise 3 Failed... :(" << std::endl;
+				}
+				break;
+
+			case '4':
+				if (exercise4()) {
+					std::cout << "Exercise 4 Worked! :)" << std::endl;
+				} else {
+					std::cout << "Exercise 4 Failed... :(" << std::endl;
+				}
+				break;
+
+			case '5':
+				if (exercise5()) {
+					std::cout << "Exercise 5 Worked! :)" << std::endl;
+				} else {
+					std::cout << "Exercise 5 Failed... :(" << std::endl;
 				}
 				break;
 
