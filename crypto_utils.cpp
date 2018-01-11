@@ -10,7 +10,7 @@
 #include "crypto_utils.h"
 
 /* Conversion from value to base64 character */
-const char BASE64[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
+const std::vector<char> BASE64 = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
 
 
 /* Binary 111111 (lowest 6 bits set only) */ 
@@ -136,7 +136,7 @@ float determine_chi_squared_result(const std::map<char, float> & freq, size_t le
 std::pair<char, float> determine_most_likely_single_xor_key(const std::vector<uint8_t> bytes)
 {
 	std::pair<char, float> min_result = std::pair<char,float>(' ', FLT_MAX);
-	for (int i = 32; i < 128; i++ ) {
+	for (int i = 0; i < 128; i++ ) {
 		std::vector<uint8_t> key(bytes.size(), i);
 		std::vector<uint8_t> xor_result;
 		fixed_xor(bytes, key, xor_result);
@@ -161,4 +161,74 @@ void repeating_xor(const std::vector<uint8_t> & buffer, const std::vector<uint8_
 		int key_index = i % key.size();
 		result.push_back(buffer[i] ^ key[key_index]);
 	}
+}
+
+int32_t hamming_distance(const std::vector<uint8_t> & input1, const std::vector<uint8_t> & input2)
+{
+	// XOR: true when the outputs differ
+	std::vector<uint8_t> result;
+	fixed_xor(input1, input2, result);
+
+	// Determine the number of bits set in each byte
+	const int BITS_PER_BYTE = 8;
+	int MASK;
+	int differing_bits = 0;
+	for (int i = 0; i < input1.size(); i++) {
+		MASK = 0x1;
+		for (int j = 0; j < BITS_PER_BYTE; j++) {
+			differing_bits += ((result[i] & MASK) == MASK);
+			MASK <<= 1;
+		}
+	}
+
+	return differing_bits;
+}
+
+int32_t base64_decode(const std::vector<uint8_t> & encoded, std::vector<uint8_t> & bytes)
+{
+	int rounds = encoded.size()/4;
+	bool use_pad_1 = false;
+	bool use_pad_2 = false;
+	for (int round = 0; round < rounds; round++) {
+		// Determine if any padding is needed
+		if (round + 1 == rounds) {
+			use_pad_1 = (encoded[round*4 + 2] == '=');
+			use_pad_2 = (encoded[round*4 + 3] == '=');
+		}
+
+		// Convert the character to a number using the BASE64 table
+		auto it = std::find(BASE64.begin(), BASE64.end(), encoded[round*4 + 0]);
+		int base64_1 = std::distance(BASE64.begin(), it);
+
+		it = std::find(BASE64.begin(), BASE64.end(), encoded[round*4 + 1]);
+		int base64_2 = std::distance(BASE64.begin(), it);
+
+		it = std::find(BASE64.begin(), BASE64.end(), encoded[round*4 + 2]);
+		int base64_3 = use_pad_1 ? 0 : std::distance(BASE64.begin(), it);
+
+		it = std::find(BASE64.begin(), BASE64.end(), encoded[round*4 + 3]);
+		int base64_4 = use_pad_2 ? 0 : std::distance(BASE64.begin(), it);
+
+		if (base64_1 == -1 || base64_2 == -1 || base64_3 == -1 || base64_4 == -1) {
+			printf("Invalid character - unable to convert to bytes\n");
+			printf("1: %d; 2: %d; 3: %d; 4: %d\n", base64_1, base64_2, base64_3, base64_4);
+			return -1;
+		}
+
+		// Normalize shifted 6-bit words
+		int normalized_1 = base64_1 << 18;
+		int normalized_2 = base64_2 << 12;
+		int normalized_3 = base64_3 << 6;
+		int normalized_4 = base64_4;
+
+		// Combine normalized bytes into 1 word
+		int fullword = normalized_1 + normalized_2 + normalized_3 + normalized_4;
+
+		// Convert into 24-bit word into 3 bytes
+		bytes.push_back((uint8_t) (fullword >> 16));
+		bytes.push_back((uint8_t) (fullword >> 8));
+		bytes.push_back((uint8_t) fullword);
+	}
+
+	return 0;
 }

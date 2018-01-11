@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <vector>
 
@@ -156,6 +157,143 @@ bool exercise5()
 	return (result == expected_bytes);
 }
 
+bool exercise6()
+{
+	std::cout << "******************** CHALLENGE 1.6 ********************" << std::endl;
+
+	std::string string1 = "this is a test";
+	std::string string2 = "wokka wokka!!!";
+	std::vector<uint8_t> string1_bytes;
+	std::vector<uint8_t> string2_bytes;
+	std::copy(string1.c_str(), string1.c_str() + string1.size(), back_inserter(string1_bytes));
+	std::copy(string2.c_str(), string2.c_str() + string2.size(), back_inserter(string2_bytes));
+	int32_t distance = hamming_distance(string1_bytes, string2_bytes);
+	if (distance != 37) {
+		std::cout << "Unexpected hamming distance " << hamming_distance << std::endl;
+		return false;
+	}
+
+	std::ifstream f("6.txt");
+	std::istream_iterator<uint8_t> start(f), end;
+	std::vector<uint8_t> ciphertext(start, end);
+	f.close();
+
+	std::vector<uint8_t> decoded_ciphertext;
+	if (base64_decode(ciphertext, decoded_ciphertext)) {
+		std::cout << "Unable to decode cipher text" << std::endl;
+		return false;
+	}
+
+	// For each key size, find the normalized hamming distance between
+	// the first and second 
+	// Map hamming distance to key size
+	std::map<double,double> key_sizes;
+	for (int i = 2; i <= 40; i++) {
+		double temp_total = 0;
+		int offset = 0;
+		int pairs_to_test = 15;
+
+		for (int j = 0; j < pairs_to_test; j++) {
+			// 3a. Find the hamming distance between the first KEYSIZE bytes in the file
+			// and the second KEYSIZE bytes in the file
+
+			// Read file into 2 separate buffers
+			std::vector<uint8_t> first_block;
+			std::vector<uint8_t> second_block;
+
+			first_block.insert(first_block.begin(), decoded_ciphertext.data(), decoded_ciphertext.data() + i + offset);
+			second_block.insert(second_block.begin(), decoded_ciphertext.data() + i, decoded_ciphertext.data() + (2*i) + offset);
+			offset += i;
+
+			temp_total += (hamming_distance(first_block, second_block) / (double)i);
+		}
+
+		// 3b. Divide the result from 2 by the KEYSIZE (normalize)
+		key_sizes.emplace(std::pair<double,double>(temp_total/pairs_to_test, (double)i));
+	}
+
+	// 4. Whichever KEYSIZE gives the smallest normalized distance is probably the
+	// key. Try the smallest 2-3 values, or use 4 KEYSIZE blocks instead of 2 and
+	// average the distances above.
+	std::vector<std::vector<uint8_t>> blocks;
+	auto it = key_sizes.begin();
+	for (int key = 0; key < 1; key++) { // TODO 3
+		int min_key_size = it++->second;
+		printf("\nKey Size: %d\n", min_key_size);
+
+		// 5. Break the ciphertext into blocks of KEYSIZE length
+		uint32_t offset = 0;
+		uint32_t remaining_bytes = decoded_ciphertext.size();
+		blocks.clear();
+		while (remaining_bytes > 0) {
+			uint32_t bytes_to_copy = remaining_bytes > min_key_size ? min_key_size : remaining_bytes;
+			std::vector<uint8_t> block;
+			block.insert(block.begin(), decoded_ciphertext.data() + offset,
+					decoded_ciphertext.data() + offset + bytes_to_copy);
+
+			// Pad the block if it is too short
+			if (block.size() != min_key_size) {
+				block.resize(min_key_size);
+			}
+
+			offset += bytes_to_copy;
+			remaining_bytes -= bytes_to_copy;
+			blocks.push_back(block);
+		}
+#if 0
+		for (auto it = blocks.begin(); it != blocks.end(); it++) {
+			for (int i = 0; i < it->size(); i++) {
+				printf("%02x", it->data()[i]);
+			}
+			std::cout << std::endl;
+		}
+#endif
+		// Transpose
+		std::vector<std::vector<uint8_t>> transposed_blocks;
+		for (int i = 0; i < blocks[0].size(); i++) {
+			transposed_blocks.push_back(std::vector<uint8_t>(blocks.size()));
+		}
+
+		for (int i = 0; i < blocks.size(); i++) {
+			for (int j = 0; j < blocks[0].size(); j++) {
+				transposed_blocks[j][i] = blocks[i][j];
+			}
+		}
+
+#if 0
+		for (auto it = transposed_blocks.begin(); it != transposed_blocks.end(); it++) {
+			std::cout << "TRANSPOSED BLOCK: ";
+			for (int i = 0; i < it->size(); i++) {
+				printf("%02x", it->data()[i]);
+			}
+			std::cout << std::endl;
+		}
+#endif
+
+		// 7. Solve each block as if it was single-character XOR.
+		std::vector<uint8_t> repeating_key_xor;
+		for (auto it = transposed_blocks.begin(); it != transposed_blocks.end(); it++) {
+			std::vector<uint8_t> block = *it;
+
+			std::pair<char, float> pair = determine_most_likely_single_xor_key(block);
+			repeating_key_xor.push_back(pair.first);
+		}
+
+		std::vector<uint8_t> result;
+		repeating_xor(decoded_ciphertext, repeating_key_xor, result);
+		std::string decrypted = std::string(result.begin(), result.end());
+
+		if (decrypted.find("Play that funky music") != std::string::npos) {
+			std::cout << "Key: " << std::string(repeating_key_xor.begin(),
+				repeating_key_xor.end()) << std::endl;
+			std::cout << decrypted << std::endl;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 int main(int argc, char * argv[])
 {
 	for (int i = 1; i < argc; i++ ) {
@@ -200,6 +338,15 @@ int main(int argc, char * argv[])
 					std::cout << "Exercise 5 Failed... :(" << std::endl;
 				}
 				break;
+
+			case '6':
+				if (exercise6()) {
+					std::cout << "Exercise 6 Worked! :)" << std::endl;
+				} else {
+					std::cout << "Exercise 6 Failed... :(" << std::endl;
+				}
+				break;
+
 
 			default:
 				std::cout << "Unknown Option" << std::endl;
