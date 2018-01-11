@@ -240,14 +240,7 @@ bool exercise6()
 			remaining_bytes -= bytes_to_copy;
 			blocks.push_back(block);
 		}
-#if 0
-		for (auto it = blocks.begin(); it != blocks.end(); it++) {
-			for (int i = 0; i < it->size(); i++) {
-				printf("%02x", it->data()[i]);
-			}
-			std::cout << std::endl;
-		}
-#endif
+
 		// Transpose
 		std::vector<std::vector<uint8_t>> transposed_blocks;
 		for (int i = 0; i < blocks[0].size(); i++) {
@@ -259,16 +252,6 @@ bool exercise6()
 				transposed_blocks[j][i] = blocks[i][j];
 			}
 		}
-
-#if 0
-		for (auto it = transposed_blocks.begin(); it != transposed_blocks.end(); it++) {
-			std::cout << "TRANSPOSED BLOCK: ";
-			for (int i = 0; i < it->size(); i++) {
-				printf("%02x", it->data()[i]);
-			}
-			std::cout << std::endl;
-		}
-#endif
 
 		// 7. Solve each block as if it was single-character XOR.
 		std::vector<uint8_t> repeating_key_xor;
@@ -289,6 +272,37 @@ bool exercise6()
 			std::cout << decrypted << std::endl;
 			return true;
 		}
+	}
+
+	return false;
+}
+
+bool exercise7()
+{
+	std::string key_str = "YELLOW SUBMARINE";
+
+	std::ifstream f("7.txt");
+	std::istream_iterator<uint8_t> start(f), end;
+	std::vector<uint8_t> ciphertext(start, end);
+	f.close();
+
+	std::vector<uint8_t> decoded_ciphertext;
+	if (base64_decode(ciphertext, decoded_ciphertext)) {
+		std::cout << "Unable to decode cipher text" << std::endl;
+		return false;
+	}
+
+	std::vector<uint8_t> key(key_str.begin(), key_str.end());
+	std::vector<uint8_t> plaintext;
+	if (decrypt_aes_128_ecb(decoded_ciphertext, key, plaintext) < 0) {
+		std::cout << "Unable to decrypt message" << std::endl;
+		return false;
+	}
+
+	std::string decrypted = std::string(plaintext.begin(), plaintext.end());
+	if (decrypted.find("Play that funky music") != std::string::npos) {
+		std::cout << decrypted << std::endl;
+		return true;
 	}
 
 	return false;
@@ -347,6 +361,13 @@ int main(int argc, char * argv[])
 				}
 				break;
 
+			case '7':
+				if (exercise7()) {
+					std::cout << "Exercise 7 Worked! :)" << std::endl;
+				} else {
+					std::cout << "Exervise 7 Failed... :(" << std::endl;
+				}
+				break;
 
 			default:
 				std::cout << "Unknown Option" << std::endl;

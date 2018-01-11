@@ -7,6 +7,10 @@
 #include <string>
 #include <vector>
 
+#include <openssl/conf.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
+
 #include "crypto_utils.h"
 
 /* Conversion from value to base64 character */
@@ -231,4 +235,50 @@ int32_t base64_decode(const std::vector<uint8_t> & encoded, std::vector<uint8_t>
 	}
 
 	return 0;
+}
+
+
+int decrypt_aes_128_ecb(const std::vector<uint8_t> & ciphertext,
+						const std::vector<uint8_t> & key,
+						std::vector<uint8_t> & plaintext)
+{
+	EVP_CIPHER_CTX *ctx;
+
+	// Create and initialize the context
+	if (!(ctx = EVP_CIPHER_CTX_new())) {
+		ERR_print_errors_fp(stderr);
+		return -1;
+	}
+
+	// Initialize the decryption operations.
+	if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key.data(), NULL)) {
+		ERR_print_errors_fp(stderr);
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+
+	// Provide the ciphertext, and get the plaintext as output.
+	int len = 0;
+	int plaintext_len = 0;
+	plaintext.resize(ciphertext.size());
+	if (1 != EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(),
+							ciphertext.size())) {
+		ERR_print_errors_fp(stderr);
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+	plaintext_len = len;
+	
+	// Finalize
+	if (1 != EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len)) {
+		ERR_print_errors_fp(stderr);
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+	plaintext_len += len;
+	plaintext.resize(plaintext_len);
+
+	EVP_CIPHER_CTX_free(ctx);
+
+	return plaintext_len;
 }

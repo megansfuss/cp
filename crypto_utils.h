@@ -45,3 +45,4 @@ std::pair<char, float> determine_most_likely_single_xor_key(const std::vector<ui
 void repeating_xor(const std::vector<uint8_t> & buffer, const std::vector<uint8_t> & key, std::vector<uint8_t> & result);
 int32_t hamming_distance(const std::vector<uint8_t> & input1, const std::vector<uint8_t> & input2);
 int32_t base64_decode(const std::vector<uint8_t> & encoded, std::vector<uint8_t> & bytes);
+int decrypt_aes_128_ecb(const std::vector<uint8_t> & ciphertext, const std::vector<uint8_t> & key, std::vector<uint8_t> & plaintext);
