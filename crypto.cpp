@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cctype>
 #include <cfloat>
 #include <cstdlib>
@@ -308,6 +309,56 @@ bool exercise7()
 	return false;
 }
 
+bool exercise8()
+{
+	std::ifstream f("8.txt");
+	std::string line;
+	std::map<int,std::string> repeats;
+	while (std::getline(f, line)) {
+		std::vector<uint8_t> bytes;
+		if (hex_to_bytes(line, bytes)) {
+			std::cout << "Unable to convert " << line << " to bytes" << std::endl;
+			return false;
+		}
+
+		// For each 16-byte block, see if it exists elsewhere
+		size_t bytes_remaining = bytes.size();
+		auto start = bytes.begin();
+		int num_matches = 0;
+		while(bytes_remaining > 0) {
+			size_t bytes_to_copy = bytes_remaining > 16 ? 16 : bytes_remaining;
+			bytes_remaining -= bytes_to_copy;
+
+			// Break into 16-bytes block
+			std::vector<uint8_t> sub;
+			sub.insert(sub.begin(), start, start + bytes_to_copy);
+			start += bytes_to_copy;
+
+			// Check remaining vector for it
+			if (std::search(start, bytes.end(), sub.begin(), sub.end()) != bytes.end()) {
+				num_matches++;
+			}
+		}
+
+		if (num_matches > 0) {
+			repeats.emplace(std::pair<int,std::string>(num_matches, line));
+		}
+	}
+
+	std::cout << std::endl;
+
+	if (repeats.size() > 0) {
+		for (auto it = repeats.begin(); it != repeats.end(); it++) {
+			std::cout << "Likely ECB Encrypted String: " << it->second << std::endl;
+			std::cout << "\tRepeats: " << it->first << std::endl;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 int main(int argc, char * argv[])
 {
 	for (int i = 1; i < argc; i++ ) {
@@ -365,7 +416,15 @@ int main(int argc, char * argv[])
 				if (exercise7()) {
 					std::cout << "Exercise 7 Worked! :)" << std::endl;
 				} else {
-					std::cout << "Exervise 7 Failed... :(" << std::endl;
+					std::cout << "Exercise 7 Failed... :(" << std::endl;
+				}
+				break;
+
+			case '8':
+				if (exercise8()) {
+					std::cout << "Exercise 8 Worked! :)" << std::endl;
+				} else {
+					std::cout << "Exercise 8 Failed... :(" << std::endl;
 				}
 				break;
 
