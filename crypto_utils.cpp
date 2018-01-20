@@ -282,3 +282,16 @@ int decrypt_aes_128_ecb(const std::vector<uint8_t> & ciphertext,
 
 	return plaintext_len;
 }
+
+std::vector<uint8_t> pad_string(const std::string & input, size_t multiple)
+{
+	std::vector<uint8_t> padded(input.begin(), input.end());
+
+	size_t padding_needed = multiple - (padded.size() % multiple);
+
+	for (size_t i = 0; i < padding_needed; i++) {
+		padded.push_back('\x04');
+	}
+
+	return padded;
+}
