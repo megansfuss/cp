@@ -258,31 +258,73 @@ int decrypt_aes_128_ecb(const std::vector<uint8_t> & ciphertext,
 	}
 
 	// Provide the ciphertext, and get the plaintext as output.
-	int len = 0;
-	int plaintext_len = 0;
+	int len1 = 0;
+	int len2 = 0;
 	plaintext.resize(ciphertext.size());
-	if (1 != EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(),
+	if (1 != EVP_DecryptUpdate(ctx, plaintext.data(), &len1, ciphertext.data(),
 							ciphertext.size())) {
 		ERR_print_errors_fp(stderr);
 		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
-	plaintext_len = len;
+	len2 = plaintext.size() - len1;
 	
 	// Finalize
-	if (1 != EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len)) {
+	if (1 != EVP_DecryptFinal_ex(ctx, plaintext.data() + len1, &len2)) {
 		ERR_print_errors_fp(stderr);
 		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
-	plaintext_len += len;
-	plaintext.resize(plaintext_len);
+	plaintext.resize(len1 + len2);
 
 	EVP_CIPHER_CTX_free(ctx);
 
-	return plaintext_len;
+	return plaintext.size();
 }
 
+int encrypt_aes_128_ecb(const std::vector<uint8_t> & plaintext,
+						const std::vector<uint8_t> & key,
+						std::vector<uint8_t> & ciphertext)
+{
+	EVP_CIPHER_CTX *ctx;
+
+	// Create and initialize the context
+	if (!(ctx = EVP_CIPHER_CTX_new())) {
+		ERR_print_errors_fp(stderr);
+		return -1;
+	}
+
+	// Initialize the decryption operations.
+	if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key.data(), NULL)) {
+		ERR_print_errors_fp(stderr);
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+
+	// Provide the plaintext, and get the ciphertext as output.
+	ciphertext.resize(plaintext.size() + 16); //TODO: 16 = block size
+	int len1 = ciphertext.size();;
+	int len2 = 0;
+	if (1 != EVP_EncryptUpdate(ctx, ciphertext.data(), &len1, plaintext.data(),
+							plaintext.size())) {
+		ERR_print_errors_fp(stderr);
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+	len2 = ciphertext.size() - len1;
+	
+	// Finalize
+	if (1 != EVP_EncryptFinal_ex(ctx, ciphertext.data() + len1, &len2)) {
+		ERR_print_errors_fp(stderr);
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+	ciphertext.resize(len1 + len2);
+
+	EVP_CIPHER_CTX_free(ctx);
+
+	return ciphertext.size();
+}
 std::vector<uint8_t> pad_string(const std::string & input, size_t multiple)
 {
 	std::vector<uint8_t> padded(input.begin(), input.end());

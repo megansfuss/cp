@@ -293,6 +293,11 @@ bool exercise7()
 		return false;
 	}
 
+	for (size_t i = 0; i < decoded_ciphertext.size(); i++) {
+		printf("%02x", decoded_ciphertext[i]);
+	}
+	std::cout << std::endl;
+
 	std::vector<uint8_t> key(key_str.begin(), key_str.end());
 	std::vector<uint8_t> plaintext;
 	if (decrypt_aes_128_ecb(decoded_ciphertext, key, plaintext) < 0) {
@@ -303,7 +308,24 @@ bool exercise7()
 	std::string decrypted = std::string(plaintext.begin(), plaintext.end());
 	if (decrypted.find("Play that funky music") != std::string::npos) {
 		std::cout << decrypted << std::endl;
-		return true;
+
+		std::vector<uint8_t> new_encrypted;
+		if (encrypt_aes_128_ecb(plaintext, key, new_encrypted) < 0) {
+			std::cout << "Unable to re-encrypt" << std::endl;
+		}
+
+		for (size_t i = 0; i < new_encrypted.size(); i++) {
+			printf("%02x", new_encrypted[i]);
+		}
+		std::cout << std::endl;
+
+		if (decoded_ciphertext == new_encrypted) {
+			std::cout << "Successfully re-encrypted ciphertext!" << std::endl;
+			return true;
+		}
+
+		return false;
+	
 	}
 
 	return false;
