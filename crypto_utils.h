@@ -34,6 +34,7 @@ static const std::map<char, float> ascii_freq = {
 };
 
 
+#define BLOCK_SIZE 16
 
 int hex_to_bytes(const std::string & input, std::vector<uint8_t> & bytes);
 void base64_encode(const std::vector<uint8_t> & bytes, std::vector<char> & output);
@@ -48,3 +49,4 @@ int32_t base64_decode(const std::vector<uint8_t> & encoded, std::vector<uint8_t>
 int encrypt_aes_128_ecb(const std::vector<uint8_t> & plaintext,	const std::vector<uint8_t> & key, std::vector<uint8_t> & ciphertext);
 int decrypt_aes_128_ecb(const std::vector<uint8_t> & ciphertext, const std::vector<uint8_t> & key, std::vector<uint8_t> & plaintext);
 std::vector<uint8_t> pad_string(const std::string & input, size_t multiple);
+int decrypt_cbc(const std::vector<uint8_t> & ciphertext, const std::vector<uint8_t> & key, const std::vector<uint8_t> & iv, std::vector<uint8_t> & plaintext);

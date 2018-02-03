@@ -20,6 +20,22 @@ const std::vector<char> BASE64 = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', '
 /* Binary 111111 (lowest 6 bits set only) */ 
 const uint32_t MASK = 0x3F;
 
+void print(std::vector<uint8_t> & v)
+{
+	for (size_t i = 0; i < v.size(); i++) {
+		printf("%02x", v[i]);
+	}
+	printf("\n");
+}
+
+void print(const std::vector<uint8_t> & v)
+{
+	for (size_t i = 0; i < v.size(); i++) {
+		printf("%02x", v[i]);
+	}
+	printf("\n");
+}
+
 int hex_to_bytes(const std::string & input, std::vector<uint8_t> & bytes)
 {
 	if (input.size() % 2 != 0) {
@@ -257,6 +273,8 @@ int decrypt_aes_128_ecb(const std::vector<uint8_t> & ciphertext,
 		return -1;
 	}
 
+	EVP_CIPHER_CTX_set_padding(ctx, 0);
+
 	// Provide the ciphertext, and get the plaintext as output.
 	int len1 = 0;
 	int len2 = 0;
@@ -267,10 +285,11 @@ int decrypt_aes_128_ecb(const std::vector<uint8_t> & ciphertext,
 		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
+
 	len2 = plaintext.size() - len1;
-	
 	// Finalize
 	if (1 != EVP_DecryptFinal_ex(ctx, plaintext.data() + len1, &len2)) {
+		ERR_load_crypto_strings();
 		ERR_print_errors_fp(stderr);
 		EVP_CIPHER_CTX_free(ctx);
 		return -1;
@@ -302,7 +321,7 @@ int encrypt_aes_128_ecb(const std::vector<uint8_t> & plaintext,
 	}
 
 	// Provide the plaintext, and get the ciphertext as output.
-	ciphertext.resize(plaintext.size() + 16); //TODO: 16 = block size
+	ciphertext.resize(plaintext.size() + BLOCK_SIZE);
 	int len1 = ciphertext.size();;
 	int len2 = 0;
 	if (1 != EVP_EncryptUpdate(ctx, ciphertext.data(), &len1, plaintext.data(),
@@ -312,19 +331,101 @@ int encrypt_aes_128_ecb(const std::vector<uint8_t> & plaintext,
 		return -1;
 	}
 	len2 = ciphertext.size() - len1;
-	
+
 	// Finalize
 	if (1 != EVP_EncryptFinal_ex(ctx, ciphertext.data() + len1, &len2)) {
 		ERR_print_errors_fp(stderr);
 		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
+
 	ciphertext.resize(len1 + len2);
 
 	EVP_CIPHER_CTX_free(ctx);
 
 	return ciphertext.size();
 }
+
+int encrypt_cbc(const std::vector<uint8_t> & plaintext, const std::vector<uint8_t> & key,
+	    const std::vector<uint8_t> & iv, std::vector<uint8_t> & ciphertext)
+{
+	//TODO: size verification?
+
+	// "last block" starts out as the iv
+	std::vector<uint8_t> last_block(iv.begin(), iv.end());
+
+	int bytes_remaining = plaintext.size();
+	auto start = plaintext.begin();
+	while (bytes_remaining > 0) {
+		std::cout << "---------------------------------------" << std::endl;
+		int bytes_to_copy = bytes_remaining > BLOCK_SIZE ? BLOCK_SIZE : bytes_remaining;
+		bytes_remaining -= bytes_to_copy;
+
+		std::vector<uint8_t> input_block(start, start + bytes_to_copy);
+		std::vector<uint8_t> output_block;
+
+		// in case the plaintext wasn't a multiple of BLOCK SIZE
+		input_block.resize(BLOCK_SIZE); 
+		start += bytes_to_copy;
+
+		if (encrypt_aes_128_ecb(input_block, key, output_block) < 0) {
+			std::cout << "Unable to encrypt block" << std::endl;
+			return -1;
+		}
+
+		fixed_xor(input_block, last_block, last_block);
+		ciphertext.insert(ciphertext.end(), last_block.begin(), last_block.end());
+	}
+}
+
+int decrypt_cbc(const std::vector<uint8_t> & ciphertext, const std::vector<uint8_t> & key,
+		const std::vector<uint8_t> & iv, std::vector<uint8_t> & plaintext)
+{
+	// TODO: size verification?
+	std::cout << "Decrypt CBC" << std::endl;
+
+	std::vector<uint8_t> last_block(iv.begin(), iv.end());
+
+	int bytes_remaining = ciphertext.size();
+	auto start = ciphertext.begin();
+	while (bytes_remaining > 0) {
+		int bytes_to_copy = bytes_remaining > BLOCK_SIZE ? BLOCK_SIZE : bytes_remaining;
+		bytes_remaining -= bytes_to_copy;
+
+		std::cout << "Bytes to copy: " << bytes_to_copy << std::endl;
+
+		std::vector<uint8_t> input_block(start, start + BLOCK_SIZE);
+		std::vector<uint8_t> output_block;
+
+//		input_block.resize(BLOCK_SIZE);
+		start += bytes_to_copy;
+
+		std::cout << "Pre fixed xor: ";
+		print(input_block);
+
+		std::cout << "Last block: ";
+		print(last_block);
+
+		fixed_xor(input_block, last_block, output_block);
+		
+		std::cout << "Post fixed xor: ";
+		print(output_block);
+
+		if (decrypt_aes_128_ecb(output_block, key, last_block) < 0) {
+			std::cout << "Unable to decrypt block" << std::endl;
+			return -1;
+		}
+
+		std::cout << "Post decrypt: ";
+		print(last_block);
+		std::cout << std::string(last_block.begin(), last_block.end()) << std::endl;
+
+		plaintext.insert(plaintext.end(), last_block.begin(), last_block.end());
+	}
+
+	return plaintext.size();
+}
+
 std::vector<uint8_t> pad_string(const std::string & input, size_t multiple)
 {
 	std::vector<uint8_t> padded(input.begin(), input.end());

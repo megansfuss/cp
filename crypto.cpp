@@ -381,12 +381,47 @@ bool exercise8()
 	return false;
 }
 
+bool exercise10()
+{
+	std::ifstream f("10.txt");
+	std::istream_iterator<uint8_t> start(f), end;
+	std::vector<uint8_t> data(start, end);
+	f.close();
+
+	std::cout << "read file " << std::endl;
+
+    std::vector<uint8_t> decoded_ciphertext;
+    if (base64_decode(data, decoded_ciphertext)) {
+        std::cout << "Unable to decode data" << std::endl;
+        return false;
+    }
+
+	std::cout << "decoded data" << std::endl;
+
+	std::string key_string = "YELLOW SUBMARINE";
+	std::vector<uint8_t> key(key_string.begin(), key_string.end());
+	std::vector<uint8_t> iv(BLOCK_SIZE, '\x00');
+
+	std::cout << "initialized stuff" << std::endl;
+
+	std::vector<uint8_t> plaintext;
+	if (decrypt_cbc(decoded_ciphertext, key, iv, plaintext) < 0) {
+		std::cout << "CBC Decrypt Failed" << std::endl;
+		return false;
+	}
+
+	std::cout << std::string(plaintext.begin(), plaintext.end()) << std::endl;
+	return true;
+
+}
+
 int main(int argc, char * argv[])
 {
 	for (int i = 1; i < argc; i++ ) {
-		char set = *argv[i];
+		int set = atoi(argv[i]);
+
 		switch (set) {
-			case '1':
+			case 1:
 				if (exercise1()) {
 					std::cout << "Exercise 1 Worked! :)" << std::endl;
 				} else {
@@ -394,7 +429,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '2':
+			case 2:
 				if (exercise2()) {
 					std::cout << "Exercise 2 Worked! :)" << std::endl;
 				} else {
@@ -402,7 +437,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '3':
+			case 3:
 				if (exercise3()) {
 					std::cout << "Exercise 3 Worked! :)" << std::endl;
 				} else {
@@ -410,7 +445,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '4':
+			case 4:
 				if (exercise4()) {
 					std::cout << "Exercise 4 Worked! :)" << std::endl;
 				} else {
@@ -418,7 +453,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '5':
+			case 5:
 				if (exercise5()) {
 					std::cout << "Exercise 5 Worked! :)" << std::endl;
 				} else {
@@ -426,7 +461,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '6':
+			case 6:
 				if (exercise6()) {
 					std::cout << "Exercise 6 Worked! :)" << std::endl;
 				} else {
@@ -434,7 +469,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '7':
+			case 7:
 				if (exercise7()) {
 					std::cout << "Exercise 7 Worked! :)" << std::endl;
 				} else {
@@ -442,13 +477,20 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '8':
+			case 8:
 				if (exercise8()) {
 					std::cout << "Exercise 8 Worked! :)" << std::endl;
 				} else {
 					std::cout << "Exercise 8 Failed... :(" << std::endl;
 				}
 				break;
+
+			case 10:
+				if (exercise10()) {
+					std::cout << "Exercise 10 Worked! :)" << std::endl;
+				} else {
+					std::cout << "Exercise 10 Failed... :(" << std::endl;
+				}
 
 			default:
 				std::cout << "Unknown Option" << std::endl;
